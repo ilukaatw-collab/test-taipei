@@ -1,436 +1,293 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>半透明建物圖台</title>
-  
-  <!-- 引入 ArcGIS API for JavaScript 的 CSS 樣式 -->
-  <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
-  
-  <!-- 定義地圖容器的樣式，使其填滿整個視窗 -->
-  <style>
-    html, body, #viewDiv {
-      padding: 0;
-      margin: 0;
-      height: 100%;
-      width: 100%;
-      /* 加入一個簡單的背景顏色，以防地圖載入前畫面全白 */
-      background-color: #f0f0f0; 
-      font-family: '微軟正黑體', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
-
-    /* 加入一個簡單的載入提示 */
-    #loadingMessage {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background-color: rgba(255, 255, 255, 0.9);
-      padding: 15px 30px;
-      border-radius: 8px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      z-index: 1000;
-      font-weight: bold;
-      color: #333;
-      transition: opacity 0.5s ease-out;
-    }
-
-    /* 控制面板樣式 */
-    #controlPanel {
-      display: none; /* 預設隱藏，待 API 載入後透過 view.ui 顯示 */
-      padding: 15px;
-      width: 320px;
-      background-color: white;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      font-size: 14px;
-      max-height: 80vh;
-      overflow-y: auto;
-    }
-    .panel-section {
-      margin-bottom: 15px;
-    }
-    .panel-section h3 {
-      margin: 0 0 10px 0;
-      font-size: 15px;
-      border-bottom: 1px solid #eee;
-      padding-bottom: 5px;
-      color: #0079c1;
-    }
-    .coord-display {
-      background: #f9f9f9;
-      padding: 10px;
-      border-radius: 4px;
-      margin-bottom: 10px;
-      font-family: monospace;
-      color: #555;
-    }
-    .action-btn {
-      width: 100%;
-      padding: 10px;
-      background: #0079c1;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background 0.3s;
-    }
-    .action-btn:hover { background: #005a92; }
-    .action-btn.picking { background: #e0a800; color: #333; }
-    .action-btn.picking:hover { background: #d39e00; }
-    
-    input[type=range] { width: 100%; cursor: pointer;}
-    
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 5px;
-      font-size: 12px;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 6px 4px;
-      text-align: center;
-    }
-    th { background-color: #f2f2f2; }
-    .delete-btn {
-      background: #dc3545;
-      color: white;
-      border: none;
-      border-radius: 3px;
-      padding: 4px 8px;
-      cursor: pointer;
-    }
-    .delete-btn:hover { background: #c82333; }
-    #errMsg {
-      color: #dc3545;
-      font-size: 13px;
-      display: none;
-      margin-bottom: 10px;
-      font-weight: bold;
-    }
-  </style>
-
-  <!-- 引入 ArcGIS API for JavaScript -->
-  <script src="https://js.arcgis.com/4.28/"></script>
-
-  <script>
-    // 使用 require 載入需要的 ArcGIS 模組
-    require([
-      "esri/Map",
-      "esri/views/SceneView",
-      "esri/layers/SceneLayer",
-      "esri/Basemap",
-      "esri/layers/TileLayer",
-      "esri/core/reactiveUtils",
-      "esri/Graphic",
-      "esri/layers/GraphicsLayer",
-      "esri/geometry/Point"
-    ], function(Map, SceneView, SceneLayer, Basemap, TileLayer, reactiveUtils, Graphic, GraphicsLayer, Point) {
-
-      // --- 1. 建立地圖物件 ---
-      // 這裡我們使用台灣通用的底圖，或者您也可以直接使用 "topo-vector"
-      const map = new Map({
-        basemap: "satellite" // 使用衛星影像作為底圖，讓 3D 建築物更真實
-      });
-
-      // --- 2. 建立 SceneView (3D 視圖) ---
-      const view = new SceneView({
-        container: "viewDiv", // 對應到 HTML 中的 div id
-        map: map,
-        camera: {
-          // 預設攝影機位置，設定在台灣附近，並帶有一點傾斜角
-          position: [121.5, 25.0, 5000], // 經度, 緯度, 高度(公尺)
-          tilt: 45, // 傾斜角 (0 是直視下方)
-          heading: 0 // 旋轉角 (0 是正北)
-        },
-        environment: {
-          // 加入一些環境設定讓 3D 畫面更好看
-          lighting: {
-            type: "sun",
-            date: new Date("March 15, 2026 12:00:00 GMT+0800") // 設定太陽光照時間
-          },
-          atmosphereEnabled: true,
-          starsEnabled: false
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>ArcGIS 3D 半透明建物圖台</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css" />
+    <script src="https://js.arcgis.com/4.28/"></script>
+    <style>
+        html, body, #viewDiv {
+            padding: 0; margin: 0; height: 100%; width: 100%; background-color: #f4f4f4;
         }
-      });
-
-      // --- 3. 建立並設定 3D 建築物圖層 (SceneLayer) ---
-      // 使用您提供的 NLSC I3S 服務網址
-      const buildingLayerUrl = "https://i3s.nlsc.gov.tw/building/i3s/SceneServer/layers/0";
-
-      const buildingLayer = new SceneLayer({
-        url: buildingLayerUrl,
-        title: "台灣 3D 建物"
-      });
-
-      // --- 4. 設定半透明效果 (Renderer) ---
-      // SceneLayer 需要透過 Renderer 來改變外觀，特別是顏色和透明度
-      // 我們使用 SimpleRenderer 將所有建築物設定為單一顏色並加上透明度
-      buildingLayer.renderer = {
-        type: "simple", // autokast 為 SimpleRenderer
-        symbol: {
-          type: "mesh-3d", // autokast 為 MeshSymbol3D
-          symbolLayers: [{
-            type: "fill", // autokast 為 FillSymbol3DLayer
-            material: {
-              // 設定顏色，這裡使用實心色，透明度統一交由 layer.opacity 控制
-              color: [255, 255, 255, 1.0] 
-            },
-            edges: {
-              type: "solid",
-              color: [100, 100, 100, 0.8], // 邊框顏色稍微深一點，比較立體
-              size: 1
-            }
-          }]
+        #loading {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 1.2rem; font-family: sans-serif; background: rgba(255,255,255,0.9);
+            padding: 15px 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10;
         }
-      };
-
-      // 設定圖層初始不透明度為 40% (0.4)
-      buildingLayer.opacity = 0.4;
-
-      // 將圖層加入地圖中
-      map.add(buildingLayer);
-
-      // --- 5. 處理圖層載入事件與視角縮放 ---
-      // 當圖層成功載入後，自動將視角縮放到圖層的範圍
-      buildingLayer.when(() => {
-        console.log("3D 建物圖層載入成功");
+        #controlPanel {
+            background: white; padding: 15px; border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: sans-serif;
+            width: 320px; display: none; max-height: 80vh; overflow-y: auto;
+        }
+        .control-group { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+        .control-group:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        button {
+            width: 100%; padding: 8px; background: #0079c1; color: white; border: none;
+            border-radius: 4px; cursor: pointer; font-size: 14px;
+        }
+        button:hover { background: #005a92; }
+        button.delete-btn { background: #d9534f; padding: 4px 8px; margin: 0; width: auto; }
+        button.delete-btn:hover { background: #c9302c; }
+        .info-text { font-size: 13px; color: #555; margin-bottom: 5px; }
+        input[type="range"] { width: 100%; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: center; word-break: break-all; }
+        th { background-color: #f8f8f8; }
         
-        // 可選：縮放到圖層範圍
-        // 注意：全台灣的圖層可能範圍很大，縮放過去可能會看不太清楚單一建物
-        // 如果您希望一開始就聚焦在某個特定城市，可以修改上面的 camera 設定
-        // view.goTo(buildingLayer.fullExtent);
-
-        // 隱藏載入提示
-        const loadingMsg = document.getElementById("loadingMessage");
-        if(loadingMsg) {
-          loadingMsg.style.opacity = 0;
-          setTimeout(() => loadingMsg.style.display = "none", 500);
+        .mode-panel {
+            background-color: #f8f9fa; border: 1px solid #dee2e6;
+            padding: 12px; border-radius: 6px; margin-bottom: 15px;
         }
-      }).catch(error => {
-        console.error("圖層載入失敗:", error);
-        document.getElementById("loadingMessage").innerText = "圖層載入失敗，請檢查網路或服務狀態。";
-      });
-
-      // 監聽視圖更新狀態，提供更好的使用者體驗
-      reactiveUtils.watch(
-        () => view.updating,
-        (updating) => {
-          if (!updating) {
-            console.log("視圖更新完成");
-          }
+        .mode-label {
+            display: block; margin: 8px 0; cursor: pointer; font-size: 14px; font-weight: bold; color: #333;
         }
-      );
-
-      // --- 6. 新增點位功能與控制面板 ---
-      
-      // 建立一個圖形圖層來放置我們新增的 3D 點
-      const graphicsLayer = new GraphicsLayer();
-      map.add(graphicsLayer);
-
-      // 取得 UI 元素並將面板加入視圖右上角
-      const controlPanel = document.getElementById("controlPanel");
-      view.ui.add(controlPanel, "top-right");
-      controlPanel.style.display = "block"; // 顯示面板
-
-      const btnPick = document.getElementById("btnPick");
-      const btnAdd = document.getElementById("btnAdd");
-      const sliderZ = document.getElementById("sliderZ");
-      const sliderOpacity = document.getElementById("sliderOpacity");
-      const valX = document.getElementById("valX");
-      const valY = document.getElementById("valY");
-      const valZ = document.getElementById("valZ");
-      const valOpacity = document.getElementById("valOpacity");
-      const errMsg = document.getElementById("errMsg");
-      const pointsTableBody = document.getElementById("pointsTable").querySelector("tbody");
-
-      // 狀態變數
-      let currentX = null;
-      let currentY = null;
-      let currentZ = parseInt(sliderZ.value);
-      let isPicking = false;
-      let pointCounter = 0;
-
-      // 監聽 Scroll Bar (Slider) 的變化
-      sliderZ.addEventListener("input", (e) => {
-        currentZ = parseInt(e.target.value);
-        valZ.textContent = currentZ;
-      });
-
-      // 監聽透明度 Slider 的變化
-      sliderOpacity.addEventListener("input", (e) => {
-        const opacityValue = parseInt(e.target.value);
-        valOpacity.textContent = opacityValue;
-        buildingLayer.opacity = opacityValue / 100;
-      });
-
-      // 按鈕 1: 開啟選取座標模式
-      btnPick.addEventListener("click", () => {
-        isPicking = !isPicking; // 切換狀態
-        if (isPicking) {
-          document.body.style.cursor = "crosshair";
-          btnPick.classList.add("picking");
-          btnPick.textContent = "請在地圖上點擊位置...";
-          errMsg.style.display = "none";
-        } else {
-          document.body.style.cursor = "default";
-          btnPick.classList.remove("picking");
-          btnPick.textContent = "1. 點擊選取座標";
-        }
-      });
-
-      // 監聽地圖點擊事件
-      view.on("click", (event) => {
-        if (isPicking) {
-          // 取得平面座標 (這裡使用預設的 Web Mercator 投影座標，單位為公尺)
-          currentX = event.mapPoint.x;
-          currentY = event.mapPoint.y;
-
-          // 更新 UI，保留小數點後兩位
-          valX.textContent = currentX.toFixed(2);
-          valY.textContent = currentY.toFixed(2);
-
-          // 結束選取模式
-          isPicking = false;
-          document.body.style.cursor = "default";
-          btnPick.classList.remove("picking");
-          btnPick.textContent = "1. 點擊選取座標";
-        }
-      });
-
-      // 按鈕 2: 產生 3D 點位
-      btnAdd.addEventListener("click", () => {
-        if (currentX === null || currentY === null) {
-          errMsg.style.display = "block"; // 顯示錯誤提示 (替代 alert)
-          return;
-        }
-        errMsg.style.display = "none";
-
-        pointCounter++;
-        const pointId = "pt_" + pointCounter;
-
-        // 建立幾何點 (包含 Z 值)
-        const point = new Point({
-          x: currentX,
-          y: currentY,
-          z: currentZ,
-          spatialReference: view.spatialReference
-        });
-
-        // 定義 3D 點的樣式 (一顆紅色的球體)
-        const symbol = {
-          type: "point-3d", 
-          symbolLayers: [{
-            type: "object",
-            width: 1.5,   // 直徑改為 1 公尺
-            height: 1.5,  // 高度改為 1 公尺
-            resource: { primitive: "sphere" },
-            material: { color: "red" }
-          }]
-        };
-
-        // 建立 Graphic
-        const graphic = new Graphic({
-          geometry: point,
-          symbol: symbol,
-          attributes: {
-            id: pointId,
-            dispX: currentX.toFixed(0), // 為了表格排版，顯示整數或小數
-            dispY: currentY.toFixed(0),
-            dispZ: currentZ
-          }
-        });
-
-        // 將點加入圖層
-        graphicsLayer.add(graphic);
-
-        // 新增資料到下方的表格中
-        const row = document.createElement("tr");
-        row.id = "row_" + pointId;
-        row.innerHTML = `
-          <td title="${currentX.toFixed(2)}">${graphic.attributes.dispX}</td>
-          <td title="${currentY.toFixed(2)}">${graphic.attributes.dispY}</td>
-          <td>${graphic.attributes.dispZ}</td>
-          <td><button class="delete-btn" data-id="${pointId}">刪除</button></td>
-        `;
-        pointsTableBody.appendChild(row);
-
-        // 為這筆資料的「刪除」按鈕綁定事件
-        row.querySelector(".delete-btn").addEventListener("click", function() {
-          const targetId = this.getAttribute("data-id");
-          
-          // 1. 從地圖圖層中移除 Graphic
-          const targetGraphic = graphicsLayer.graphics.find(g => g.attributes.id === targetId);
-          if (targetGraphic) {
-            graphicsLayer.remove(targetGraphic);
-          }
-          
-          // 2. 從表格中移除該列
-          row.remove();
-        });
-      });
-
-    });
-  </script>
+        .mode-label input { margin-right: 8px; transform: scale(1.2); }
+    </style>
 </head>
 <body>
-  <!-- 載入提示訊息 -->
-  <div id="loadingMessage">正在載入 3D 建物圖層，請稍候...</div>
-  
-  <!-- 新增的控制面板 UI -->
-  <div id="controlPanel" class="esri-widget">
-    <div class="panel-section">
-      <h3>取得平面座標</h3>
-      <button id="btnPick" class="action-btn">1. 點擊選取座標</button>
-      <div class="coord-display">
-        X: <span id="valX">尚未選取</span><br>
-        Y: <span id="valY">尚未選取</span>
-      </div>
+    <div id="loading">⏳ 3D 建物模型載入中，請稍候...</div>
+    <div id="viewDiv"></div>
+    
+    <div id="controlPanel">
+        <div class="mode-panel">
+            <div class="info-text" style="color: #0056b3; margin-bottom: 8px;"><b>🖱️ 滑鼠點擊模式切換：</b></div>
+            <label class="mode-label">
+                <input type="radio" name="mouseMode" value="browse" checked> 🌍 1. 瀏覽地圖與建物資訊
+            </label>
+            <label class="mode-label">
+                <input type="radio" name="mouseMode" value="pick"> 🎯 2. 選取座標 (打點用)
+            </label>
+            <label class="mode-label">
+                <input type="radio" name="mouseMode" value="query"> 🔴 3. 強制查詢紅點
+            </label>
+        </div>
+
+        <div class="control-group">
+            <div class="info-text">模型透明度: <span id="opacityValue">40</span>%</div>
+            <input type="range" id="opacitySlider" min="0" max="100" value="40">
+        </div>
+
+        <div class="control-group">
+            <div class="info-text"><b>📍 準備產生新點位：</b></div>
+            <div class="info-text" style="color: #666;">(請先切換至「模式2」選取座標)</div>
+            <div class="info-text" style="margin-top: 5px;">X: <span id="valX" style="color:#0079c1; font-weight:bold;">無</span></div>
+            <div class="info-text">Y: <span id="valY" style="color:#0079c1; font-weight:bold;">無</span></div>
+            <div class="info-text" style="margin-top: 10px;">調整高度 (Z): <span id="valZ" style="font-weight:bold;">0</span> 公尺</div>
+            <input type="range" id="zSlider" min="-50" max="500" value="0">
+            <button id="btnGeneratePoint" style="margin-top: 10px;">➕ 產生 2 公尺點座標</button>
+        </div>
+
+        <div class="control-group">
+            <div class="info-text"><b>📋 紀錄點位</b></div>
+            <table id="pointTable">
+                <thead>
+                    <tr><th width="30%">X</th><th width="30%">Y</th><th width="20%">Z</th><th width="20%">操作</th></tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
     </div>
 
-    <div class="panel-section">
-      <h3>設定高度 (Z值)</h3>
-      <!-- Scroll bar (Slider) -->
-      <input type="range" id="sliderZ" min="0" max="1000" step="1" value="100">
-      <div class="coord-display">
-        Z: <span id="valZ">100</span> 公尺
-      </div>
-    </div>
+    <script>
+        require([
+            "esri/Map", "esri/views/SceneView", "esri/layers/SceneLayer",
+            "esri/layers/GraphicsLayer", "esri/Graphic", "esri/geometry/Point"
+        ], function(Map, SceneView, SceneLayer, GraphicsLayer, Graphic, Point) {
 
-    <div class="panel-section">
-      <h3>建物不透明度</h3>
-      <!-- 透明度 slider (0-100%) -->
-      <input type="range" id="sliderOpacity" min="0" max="100" step="1" value="40">
-      <div class="coord-display">
-        顯示比例: <span id="valOpacity">40</span>%
-      </div>
-    </div>
+            const map = new Map({ basemap: "satellite", ground: "world-elevation" });
 
-    <div class="panel-section">
-      <h3>產生 3D 點位</h3>
-      <div id="errMsg">請先完成上方步驟選取座標！</div>
-      <button id="btnAdd" class="action-btn">2. 產生點座標</button>
-    </div>
+            const view = new SceneView({
+                container: "viewDiv", map: map,
+                camera: { position: { x: 120.68, y: 24.14, z: 2500 }, tilt: 60 }
+            });
 
-    <div class="panel-section" style="margin-bottom: 0;">
-      <h3>紀錄列表</h3>
-      <table id="pointsTable">
-        <thead>
-          <tr>
-            <th>X</th><th>Y</th><th>Z</th><th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <!-- 點位資料將動態加入於此 -->
-        </tbody>
-      </table>
-    </div>
-  </div>
+            // 預設為模式 1，所以預設開啟 API 自動彈出視窗
+            view.popup.autoOpenEnabled = true;
 
-  <!-- 地圖容器 -->
-  <div id="viewDiv"></div>
+            // 建物圖層
+            const buildingLayer = new SceneLayer({
+                url: "https://i3s.nlsc.gov.tw/building/i3s/SceneServer/layers/0",
+                outFields: ["*"], // 【新增】確保撈取所有屬性資料，方便後續可能需要的模型更新或比對
+                opacity: 0.4,
+                popupEnabled: true, // 【恢復】預設允許點擊建物彈出資訊
+                popupTemplate: {
+                    title: "🏢 建物模型資訊",
+                    content: "{*}" // {*代表將圖層內所有屬性以表格方式列出}
+                },
+                renderer: {
+                    type: "simple",
+                    symbol: {
+                        type: "mesh-3d",
+                        symbolLayers: [{
+                            type: "fill", material: { color: "white" },
+                            edges: { type: "solid", color: [50, 50, 50, 0.5], size: 1 }
+                        }]
+                    }
+                }
+            });
+            map.add(buildingLayer);
+
+            const graphicsLayer = new GraphicsLayer({ elevationInfo: { mode: "absolute-height" } });
+            map.add(graphicsLayer);
+
+            view.whenLayerView(buildingLayer).then(() => {
+                document.getElementById("loading").style.display = "none";
+                document.getElementById("controlPanel").style.display = "block";
+                view.ui.add("controlPanel", "top-right");
+            });
+
+            // UI 控制變數
+            let currentX = null;
+            let currentY = null;
+            let currentGraphicId = 0;
+
+            const spanX = document.getElementById("valX");
+            const spanY = document.getElementById("valY");
+            const spanZ = document.getElementById("valZ");
+            const zSlider = document.getElementById("zSlider");
+            const opacitySlider = document.getElementById("opacitySlider");
+            const opacityValueSpan = document.getElementById("opacityValue");
+            const btnGenerate = document.getElementById("btnGeneratePoint");
+            const tableBody = document.getElementById("tableBody");
+
+            // --- 透明度與高度拉桿 ---
+            opacitySlider.addEventListener("input", function() {
+                opacityValueSpan.innerText = this.value;
+                buildingLayer.opacity = this.value / 100;
+            });
+
+            zSlider.addEventListener("input", function() { spanZ.innerText = this.value; });
+
+            // --- 產生點位按鈕 ---
+            btnGenerate.addEventListener("click", function() {
+                if (currentX === null || currentY === null) { 
+                    alert("請先將模式切換為「2. 選取座標」，並在地圖上點擊取得位置！"); 
+                    return; 
+                }
+                const currentZ = parseFloat(zSlider.value);
+                const pointId = "pt_" + currentGraphicId++;
+
+                const pointGraphic = new Graphic({
+                    geometry: new Point({
+                        x: parseFloat(currentX), y: parseFloat(currentY), z: currentZ,
+                        spatialReference: view.spatialReference
+                    }),
+                    symbol: {
+                        type: "point-3d",
+                        symbolLayers: [{
+                            type: "object", width: 2, height: 2, depth: 2,
+                            resource: { primitive: "sphere" }, material: { color: "red" }
+                        }]
+                    },
+                    attributes: { id: pointId, x: currentX, y: currentY, z: currentZ }
+                });
+
+                graphicsLayer.add(pointGraphic);
+
+                const tr = document.createElement("tr");
+                tr.id = "row_" + pointId;
+                tr.innerHTML = `<td>${currentX}</td><td>${currentY}</td><td>${currentZ}</td><td><button class="delete-btn" onclick="deletePoint('${pointId}')">刪除</button></td>`;
+                tableBody.appendChild(tr);
+            });
+
+            // --- 刪除點位 ---
+            window.deletePoint = function(pointId) {
+                const row = document.getElementById("row_" + pointId);
+                if (row) row.remove();
+                const g = graphicsLayer.graphics.find(g => g.attributes && g.attributes.id === pointId);
+                if (g) graphicsLayer.remove(g);
+                view.popup.close();
+            };
+
+            // ==========================================
+            // ⭐️ 動態權限控制：切換模式時自動調整 Popup 設定
+            // ==========================================
+            const modeRadios = document.querySelectorAll('input[name="mouseMode"]');
+            modeRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    view.popup.close(); 
+                    
+                    if (this.value === 'browse') {
+                        // 【模式 1】：恢復原生 API 點擊功能
+                        document.getElementById("viewDiv").style.cursor = "default";
+                        view.popup.autoOpenEnabled = true;   // 允許系統自己開視窗
+                        buildingLayer.popupEnabled = true;   // 讓建物可以被點擊顯示資料
+                    } else {
+                        // 【模式 2 & 3】：準備打點或強制查紅點，需要關閉系統干擾
+                        if (this.value === 'pick') {
+                            document.getElementById("viewDiv").style.cursor = "crosshair";
+                        } else if (this.value === 'query') {
+                            document.getElementById("viewDiv").style.cursor = "help";      
+                        }
+                        view.popup.autoOpenEnabled = false;  // 關閉系統自動開窗
+                        buildingLayer.popupEnabled = false;  // 把建物變成純背景(不觸發彈窗)
+                    }
+                });
+            });
+
+            // ==========================================
+            // ⭐️ 地圖點擊事件處理
+            // ==========================================
+            view.on("click", function(event) {
+                const currentMode = document.querySelector('input[name="mouseMode"]:checked').value;
+
+                // 【模式一：瀏覽地圖】
+                if (currentMode === "browse") {
+                    return; // 什麼都不做，因為我們已經把 autoOpenEnabled 打開，ArcGIS 引擎會自動幫我們抓取建物的資料！
+                }
+
+                // 【模式二：選取新座標】
+                if (currentMode === "pick") {
+                    event.stopPropagation(); 
+                    currentX = event.mapPoint.x.toFixed(2);
+                    currentY = event.mapPoint.y.toFixed(2);
+                    spanX.innerText = currentX; 
+                    spanY.innerText = currentY;
+                    return; 
+                }
+
+                // 【模式三：強制查詢紅點】
+                if (currentMode === "query") {
+                    event.stopPropagation(); 
+                    view.popup.close();
+
+                    let closestGraphic = null;
+                    let minDistance = 30; 
+
+                    graphicsLayer.graphics.forEach(function(g) {
+                        const screenPoint = view.toScreen(g.geometry);
+                        if (screenPoint) {
+                            const dx = screenPoint.x - event.x;
+                            const dy = screenPoint.y - event.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                closestGraphic = g;
+                            }
+                        }
+                    });
+
+                    if (closestGraphic) {
+                        const attr = closestGraphic.attributes;
+                        view.popup.open({
+                            title: "📍 點位資訊",
+                            content: `
+                                <div style="font-size: 14px; line-height: 1.5;">
+                                    <b>標記編號:</b> ${attr.id}<br>
+                                    <b>X 座標:</b> ${attr.x}<br>
+                                    <b>Y 座標:</b> ${attr.y}<br>
+                                    <b>Z 高度:</b> <span style="color:red; font-weight:bold;">${attr.z}</span> 公尺
+                                </div>
+                            `,
+                            location: closestGraphic.geometry
+                        });
+                    }
+                }
+            });
+
+        });
+    </script>
 </body>
 </html>
