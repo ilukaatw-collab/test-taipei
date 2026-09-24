@@ -111,6 +111,12 @@
                 outFields: ["*"], // 【新增】確保撈取所有屬性資料，方便後續可能需要的模型更新或比對
                 opacity: 0.4,
                 popupEnabled: true, // 【恢復】預設允許點擊建物彈出資訊
+                // 加入以下設定，讓建物底面以地表高程為基準
+               elevationInfo: {
+               mode: "relative-to-ground", // 或嘗試 "on-the-ground"
+                offset: 0
+
+                
                 popupTemplate: {
                     title: "🏢 建物模型資訊",
                     content: "{*}" // {*代表將圖層內所有屬性以表格方式列出}
