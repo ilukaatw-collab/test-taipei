@@ -1,301 +1,476 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-    <title>ArcGIS 3D 半透明建物圖台</title>
-    <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css" />
-    <script src="https://js.arcgis.com/4.28/"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台北市三維圖台 (Cesium.js)</title>
+    
     <style>
-        html, body, #viewDiv {
-            padding: 0; margin: 0; height: 100%; width: 100%; background-color: #f4f4f4;
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #000;
         }
-        #loading {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 1.2rem; font-family: sans-serif; background: rgba(255,255,255,0.9);
-            padding: 15px 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10;
+        #cesiumContainer {
+            width: 100%;
+            height: 100%;
+            display: block;
         }
-        #controlPanel {
-            background: white; padding: 15px; border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: sans-serif;
-            width: 320px; display: none; max-height: 80vh; overflow-y: auto;
+        #loadingOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.9);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.25rem;
+            z-index: 10;
+            transition: opacity 0.5s ease;
         }
-        .control-group { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
-        .control-group:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-        button {
-            width: 100%; padding: 8px; background: #0079c1; color: white; border: none;
-            border-radius: 4px; cursor: pointer; font-size: 14px;
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
         }
-        button:hover { background: #005a92; }
-        button.delete-btn { background: #d9534f; padding: 4px 8px; margin: 0; width: auto; }
-        button.delete-btn:hover { background: #c9302c; }
-        .info-text { font-size: 13px; color: #555; margin-bottom: 5px; }
-        input[type="range"] { width: 100%; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 6px; text-align: center; word-break: break-all; }
-        th { background-color: #f8f8f8; }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
         
-        .mode-panel {
-            background-color: #f8f9fa; border: 1px solid #dee2e6;
-            padding: 12px; border-radius: 6px; margin-bottom: 15px;
+        #controlPanel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            color: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            z-index: 5;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+            width: 320px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-sizing: border-box;
         }
-        .mode-label {
-            display: block; margin: 8px 0; cursor: pointer; font-size: 14px; font-weight: bold; color: #333;
+        /* 自訂捲軸 */
+        #controlPanel::-webkit-scrollbar { width: 6px; }
+        #controlPanel::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+        #controlPanel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+        
+        .panel-title {
+            font-weight: 600;
+            font-size: 1.15rem;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 10px;
+            letter-spacing: 1px;
         }
-        .mode-label input { margin-right: 8px; transform: scale(1.2); }
+        .section-title {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .value-display {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #38bdf8;
+        }
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: #38bdf8;
+        }
+
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        button:hover { background: #2563eb; }
+        button.active { background: #ef4444; } /* 啟用選取模式時變紅色 */
+        button.active:hover { background: #dc2626; }
+        button.btn-add { background: #10b981; margin-top: 10px; }
+        button.btn-add:hover { background: #059669; }
+        button.btn-del { background: #ef4444; padding: 4px 8px; font-size: 0.75rem; border-radius: 4px;}
+        button.btn-del:hover { background: #dc2626; }
+
+        .coord-box {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-family: monospace;
+            color: #cbd5e1;
+        }
+
+        /* 資料表單 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+        th, td {
+            text-align: left;
+            padding: 8px 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        th { color: #94a3b8; font-weight: normal; }
+
+        /* 自訂訊息框 (Toast) */
+        #toastBox {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #f59e0b;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+        #toastBox.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
     </style>
+
+    <link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.105.1/Build/Cesium/Widgets/widgets.css">
+    <script>
+        window.CESIUM_BASE_URL = 'https://cesium.com/downloads/cesiumjs/releases/1.105.1/Build/Cesium/';
+    </script>
 </head>
 <body>
-    <div id="loading">⏳ 3D 建物模型載入中，請稍候...</div>
-    <div id="viewDiv"></div>
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <div>載入 3D 引擎與衛星圖資中，請稍候...</div>
+    </div>
+    
+    <!-- 自訂訊息框 (替代 alert) -->
+    <div id="toastBox">系統訊息</div>
     
     <div id="controlPanel">
-        <div class="mode-panel">
-            <div class="info-text" style="color: #0056b3; margin-bottom: 8px;"><b>🖱️ 滑鼠點擊模式切換：</b></div>
-            <label class="mode-label">
-                <input type="radio" name="mouseMode" value="browse" checked> 🌍 1. 瀏覽地圖與建物資訊
-            </label>
-            <label class="mode-label">
-                <input type="radio" name="mouseMode" value="pick"> 🎯 2. 選取座標 (打點用)
-            </label>
-            <label class="mode-label">
-                <input type="radio" name="mouseMode" value="query"> 🔴 3. 強制查詢紅點
-            </label>
-        </div>
-
+        <!-- 標題改為功能區 -->
+        <div class="panel-title">功能區</div>
+        
+        <!-- 區塊一：底圖與模型設定 -->
+        <div class="section-title">顯示設定</div>
         <div class="control-group">
-            <div class="info-text">模型透明度: <span id="opacityValue">40</span>%</div>
+            <div class="flex-between">
+                <span style="font-size:0.9rem; color:#cbd5e1;">3D 建物透明度</span>
+                <span class="value-display" id="opacityValue">40%</span>
+            </div>
             <input type="range" id="opacitySlider" min="0" max="100" value="40">
         </div>
 
+        <!-- 區塊二：座標擷取與建立點位 -->
+        <div class="section-title">點位建置作業</div>
         <div class="control-group">
-            <div class="info-text"><b>📍 準備產生新點位：</b></div>
-            <div class="info-text" style="color: #666;">(請先切換至「模式2」選取座標)</div>
-            <div class="info-text" style="margin-top: 5px;">X: <span id="valX" style="color:#0079c1; font-weight:bold;">無</span></div>
-            <div class="info-text">Y: <span id="valY" style="color:#0079c1; font-weight:bold;">無</span></div>
-            <div class="info-text" style="margin-top: 10px;">調整高度 (Z): <span id="valZ" style="font-weight:bold;">0</span> 公尺</div>
-            <input type="range" id="zSlider" min="-50" max="500" value="0">
-            <button id="btnGeneratePoint" style="margin-top: 10px;">➕ 產生點座標</button>
+            <button id="btnPickPoint">按鈕1: 選取平面座標</button>
+            <div class="coord-box">
+                <div>X: <span id="displayX">--</span></div>
+                <div style="margin-top:4px;">Y: <span id="displayY">--</span></div>
+            </div>
+
+            <div class="flex-between" style="margin-top: 8px;">
+                <span style="font-size:0.9rem; color:#cbd5e1;">Z 值高度設定 (公尺)</span>
+                <span class="value-display" id="displayZ">0</span>
+            </div>
+            <!-- Z 軸高度滑桿: 0 ~ 600m -->
+            <input type="range" id="zSlider" min="-50" max="600" value="0">
+
+            <button id="btnAddPoint" class="btn-add">按鈕2: 產生 3D 點座標</button>
         </div>
 
-        <div class="control-group">
-            <div class="info-text"><b>📋 紀錄點位</b></div>
-            <table id="pointTable">
-                <thead>
-                    <tr><th width="30%">X</th><th width="30%">Y</th><th width="20%">Z</th><th width="20%">操作</th></tr>
-                </thead>
-                <tbody id="tableBody"></tbody>
-            </table>
-        </div>
+        <!-- 區塊三：已建置點位清單 -->
+        <div class="section-title">已產生點位表單</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>X</th>
+                    <th>Y</th>
+                    <th>Z</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="pointsTableBody">
+                <!-- 點位資料會插入這裡 -->
+            </tbody>
+        </table>
     </div>
 
+    <div id="cesiumContainer"></div>
+
     <script>
-        require([
-            "esri/Map", "esri/views/SceneView", "esri/layers/SceneLayer",
-            "esri/layers/GraphicsLayer", "esri/Graphic", "esri/geometry/Point"
-        ], function(Map, SceneView, SceneLayer, GraphicsLayer, Graphic, Point) {
+        const script = document.createElement('script');
+        script.src = window.CESIUM_BASE_URL + 'Cesium.js';
+        script.onload = initCesiumApp;
+        document.head.appendChild(script);
 
-            const map = new Map({ basemap: "satellite", ground: "world-elevation" });
+        // UI 元素綁定
+        const opacitySlider = document.getElementById('opacitySlider');
+        const opacityValueDisplay = document.getElementById('opacityValue');
+        const btnPickPoint = document.getElementById('btnPickPoint');
+        const displayX = document.getElementById('displayX');
+        const displayY = document.getElementById('displayY');
+        const zSlider = document.getElementById('zSlider');
+        const displayZ = document.getElementById('displayZ');
+        const btnAddPoint = document.getElementById('btnAddPoint');
+        const pointsTableBody = document.getElementById('pointsTableBody');
+        const toastBox = document.getElementById('toastBox');
 
-            const view = new SceneView({
-                container: "viewDiv", map: map,
-                camera: { position: { x: 120.68, y: 24.14, z: 2500 }, tilt: 60 }
+        // 狀態變數
+        let isPicking = false;
+        let currentX = null;
+        let currentY = null;
+        let pointsArray = [];
+
+        // 提示框功能 (取代 alert)
+        function showToast(message) {
+            toastBox.textContent = message;
+            toastBox.classList.add('show');
+            setTimeout(() => {
+                toastBox.classList.remove('show');
+            }, 3000);
+        }
+
+        function initCesiumApp() {
+            const taipeiLongitude = 121.5654;
+            const taipeiLatitude = 25.0330;
+            const viewHeight = 1500.0;
+
+            Cesium.Ion.defaultAccessToken = '';
+
+            const viewer = new Cesium.Viewer('cesiumContainer', {
+                baseLayerPicker: false,
+                geocoder: false,
+                homeButton: false,
+                sceneModePicker: false,
+                navigationHelpButton: false,
+                animation: false,
+                timeline: false,
+                fullscreenButton: false,
+                baseLayer: false
             });
 
-            // 預設為模式 1，所以預設開啟 API 自動彈出視窗
-            view.popup.autoOpenEnabled = true;
+            // 確保選取功能能與 3D 建築物交互作用
+            viewer.scene.globe.depthTestAgainstTerrain = true;
 
-            // 建物圖層
-            const buildingLayer = new SceneLayer({
-                url: "https://i3s.nlsc.gov.tw/building/i3s/SceneServer/layers/4",
-                outFields: ["*"], // 【新增】確保撈取所有屬性資料，方便後續可能需要的模型更新或比對
-                opacity: 0.5,
-                popupEnabled: true, // 【恢復】預設允許點擊建物彈出資訊
-                // 加入以下設定，讓建物底面以地表高程為基準
-               elevationInfo: {
-               //mode: "relative-to-ground", // 或嘗試 "on-the-ground"
-                mode: "on-the-ground",
-                   offset: 0
-                       },
-//
-                
-                popupTemplate: {
-                    title: "🏢 建物模型資訊",
-                    content: "{*}" // {*代表將圖層內所有屬性以表格方式列出}
-                },
-                renderer: {
-                    type: "simple",
-                    symbol: {
-                        type: "mesh-3d",
-                        symbolLayers: [{
-                            type: "fill", material: { color: "white" },
-                            edges: { type: "solid", color: [50, 50, 50, 0.5], size: 1 }
-                        }]
-                    }
-                }
+            const imageryProvider = new Cesium.ArcGisMapServerImageryProvider({
+                url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
+                enablePickFeatures: false
             });
-            map.add(buildingLayer);
+            viewer.imageryLayers.addImageryProvider(imageryProvider);
 
-            const graphicsLayer = new GraphicsLayer({ elevationInfo: { mode: "absolute-height" } });
-            map.add(graphicsLayer);
-
-            view.whenLayerView(buildingLayer).then(() => {
-                document.getElementById("loading").style.display = "none";
-                document.getElementById("controlPanel").style.display = "block";
-                view.ui.add("controlPanel", "top-right");
-            });
-
-            // UI 控制變數
-            let currentX = null;
-            let currentY = null;
-            let currentGraphicId = 0;
-
-            const spanX = document.getElementById("valX");
-            const spanY = document.getElementById("valY");
-            const spanZ = document.getElementById("valZ");
-            const zSlider = document.getElementById("zSlider");
-            const opacitySlider = document.getElementById("opacitySlider");
-            const opacityValueSpan = document.getElementById("opacityValue");
-            const btnGenerate = document.getElementById("btnGeneratePoint");
-            const tableBody = document.getElementById("tableBody");
-
-            // --- 透明度與高度拉桿 ---
-            opacitySlider.addEventListener("input", function() {
-                opacityValueSpan.innerText = this.value;
-                buildingLayer.opacity = this.value / 100;
-            });
-
-            zSlider.addEventListener("input", function() { spanZ.innerText = this.value; });
-
-            // --- 產生點位按鈕 ---
-            btnGenerate.addEventListener("click", function() {
-                if (currentX === null || currentY === null) { 
-                    alert("請先將模式切換為「2. 選取座標」，並在地圖上點擊取得位置！"); 
-                    return; 
-                }
-                const currentZ = parseFloat(zSlider.value);
-                const pointId = "pt_" + currentGraphicId++;
-
-                const pointGraphic = new Graphic({
-                    geometry: new Point({
-                        x: parseFloat(currentX), y: parseFloat(currentY), z: currentZ,
-                        spatialReference: view.spatialReference
-                    }),
-                    symbol: {
-                        type: "point-3d",
-                        symbolLayers: [{
-                            type: "object", width: 2, height: 2, depth: 2,
-                            resource: { primitive: "sphere" }, material: { color: "red" }
-                        }]
-                    },
-                    attributes: { id: pointId, x: currentX, y: currentY, z: currentZ }
-                });
-
-                graphicsLayer.add(pointGraphic);
-
-                const tr = document.createElement("tr");
-                tr.id = "row_" + pointId;
-                tr.innerHTML = `<td>${currentX}</td><td>${currentY}</td><td>${currentZ}</td><td><button class="delete-btn" onclick="deletePoint('${pointId}')">刪除</button></td>`;
-                tableBody.appendChild(tr);
-            });
-
-            // --- 刪除點位 ---
-            window.deletePoint = function(pointId) {
-                const row = document.getElementById("row_" + pointId);
-                if (row) row.remove();
-                const g = graphicsLayer.graphics.find(g => g.attributes && g.attributes.id === pointId);
-                if (g) graphicsLayer.remove(g);
-                view.popup.close();
-            };
-
-            // ==========================================
-            // ⭐️ 動態權限控制：切換模式時自動調整 Popup 設定
-            // ==========================================
-            const modeRadios = document.querySelectorAll('input[name="mouseMode"]');
-            modeRadios.forEach(radio => {
-                radio.addEventListener('change', function() {
-                    view.popup.close(); 
+            Cesium.Cesium3DTileset.fromUrl('https://3dtiles.nlsc.gov.tw/building/tiles3d/0/tileset.json')
+                .then(function(tileset) {
+                    viewer.scene.primitives.add(tileset);
                     
-                    if (this.value === 'browse') {
-                        // 【模式 1】：恢復原生 API 點擊功能
-                        document.getElementById("viewDiv").style.cursor = "default";
-                        view.popup.autoOpenEnabled = true;   // 允許系統自己開視窗
-                        buildingLayer.popupEnabled = true;   // 讓建物可以被點擊顯示資料
-                    } else {
-                        // 【模式 2 & 3】：準備打點或強制查紅點，需要關閉系統干擾
-                        if (this.value === 'pick') {
-                            document.getElementById("viewDiv").style.cursor = "crosshair";
-                        } else if (this.value === 'query') {
-                            document.getElementById("viewDiv").style.cursor = "help";      
-                        }
-                        view.popup.autoOpenEnabled = false;  // 關閉系統自動開窗
-                        buildingLayer.popupEnabled = false;  // 把建物變成純背景(不觸發彈窗)
-                    }
-                });
-            });
-
-            // ==========================================
-            // ⭐️ 地圖點擊事件處理
-            // ==========================================
-            view.on("click", function(event) {
-                const currentMode = document.querySelector('input[name="mouseMode"]:checked').value;
-
-                // 【模式一：瀏覽地圖】
-                if (currentMode === "browse") {
-                    return; // 什麼都不做，因為我們已經把 autoOpenEnabled 打開，ArcGIS 引擎會自動幫我們抓取建物的資料！
-                }
-
-                // 【模式二：選取新座標】
-                if (currentMode === "pick") {
-                    event.stopPropagation(); 
-                    currentX = event.mapPoint.x.toFixed(2);
-                    currentY = event.mapPoint.y.toFixed(2);
-                    spanX.innerText = currentX; 
-                    spanY.innerText = currentY;
-                    return; 
-                }
-
-                // 【模式三：強制查詢紅點】
-                if (currentMode === "query") {
-                    event.stopPropagation(); 
-                    view.popup.close();
-
-                    let closestGraphic = null;
-                    let minDistance = 30; 
-
-                    graphicsLayer.graphics.forEach(function(g) {
-                        const screenPoint = view.toScreen(g.geometry);
-                        if (screenPoint) {
-                            const dx = screenPoint.x - event.x;
-                            const dy = screenPoint.y - event.y;
-                            const distance = Math.sqrt(dx * dx + dy * dy);
-
-                            if (distance < minDistance) {
-                                minDistance = distance;
-                                closestGraphic = g;
-                            }
-                        }
-                    });
-
-                    if (closestGraphic) {
-                        const attr = closestGraphic.attributes;
-                        view.popup.open({
-                            title: "📍 點位資訊",
-                            content: `
-                                <div style="font-size: 14px; line-height: 1.5;">
-                                    <b>標記編號:</b> ${attr.id}<br>
-                                    <b>X 座標:</b> ${attr.x}<br>
-                                    <b>Y 座標:</b> ${attr.y}<br>
-                                    <b>Z 高度:</b> <span style="color:red; font-weight:bold;">${attr.z}</span> 公尺
-                                </div>
-                            `,
-                            location: closestGraphic.geometry
+                    function updateTilesetOpacity(opacityPercent) {
+                        const opacityDecimal = opacityPercent / 100;
+                        // 修正: 確保在 opacity 為 0 的時候完全透明，其他時候正常變化。
+                        // 原本的寫法在某些顯示卡或底圖設定下可能被當作 cut-off 值。
+                        tileset.style = new Cesium.Cesium3DTileStyle({
+                            color: "color('white', " + opacityDecimal + ")"
                         });
                     }
+
+                    updateTilesetOpacity(opacitySlider.value);
+                    opacitySlider.addEventListener('input', function(e) {
+                        const currentValue = e.target.value;
+                        opacityValueDisplay.textContent = currentValue + '%';
+                        updateTilesetOpacity(currentValue);
+                    });
+                })
+                .catch(function(error) {
+                    console.error('3D Tiles 載入失敗:', error);
+                });
+
+            viewer.camera.setView({
+                destination: Cesium.Cartesian3.fromDegrees(taipeiLongitude, taipeiLatitude, viewHeight),
+                orientation: {
+                    heading: Cesium.Math.toRadians(0.0),   
+                    pitch: Cesium.Math.toRadians(-60.0),   
+                    roll: 0.0                              
                 }
             });
 
-        });
+            // 高度滑桿監聽
+            zSlider.addEventListener('input', function(e) {
+                displayZ.textContent = e.target.value;
+            });
+
+            // 選取座標模式切換
+            btnPickPoint.addEventListener('click', () => {
+                isPicking = !isPicking;
+                if (isPicking) {
+                    btnPickPoint.classList.add('active');
+                    btnPickPoint.textContent = '取消選取 (點擊地圖任意處)';
+                    viewer.canvas.style.cursor = 'crosshair';
+                } else {
+                    btnPickPoint.classList.remove('active');
+                    btnPickPoint.textContent = '按鈕1: 選取平面座標';
+                    viewer.canvas.style.cursor = 'default';
+                }
+            });
+
+            // 滑鼠點擊事件監聽 (擷取座標)
+            const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+            handler.setInputAction(function(clickEvent) {
+                if (isPicking) {
+                    const cartesian = viewer.scene.pickPosition(clickEvent.position);
+                    
+                    if (Cesium.defined(cartesian)) {
+                        const cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+                        currentX = Cesium.Math.toDegrees(cartographic.longitude).toFixed(5);
+                        currentY = Cesium.Math.toDegrees(cartographic.latitude).toFixed(5);
+                        
+                        displayX.textContent = currentX;
+                        displayY.textContent = currentY;
+
+                        isPicking = false;
+                        btnPickPoint.classList.remove('active');
+                        btnPickPoint.textContent = '按鈕1: 選取平面座標';
+                        viewer.canvas.style.cursor = 'default';
+                    } else {
+                        showToast('請點擊地球表面或建築物！');
+                    }
+                } else {
+                    // 非座標選取模式下，使用 drillPick (穿透選取) 來尋找可能被模型遮擋的點位
+                    const pickedObjects = viewer.scene.drillPick(clickEvent.position);
+                    if (pickedObjects.length > 0) {
+                        for (let i = 0; i < pickedObjects.length; i++) {
+                            const picked = pickedObjects[i];
+                            // 檢查是否選取到了我們建立的 Entity
+                            if (Cesium.defined(picked) && Cesium.defined(picked.id)) {
+                                const entityId = picked.id.id; // 取得實體的 ID
+                                const targetPoint = pointsArray.find(p => p.id === entityId);
+                                
+                                if (targetPoint) {
+                                    // 找到自訂點位，顯示資訊並中斷迴圈
+                                    showToast(`📌 點選資訊 - X: ${targetPoint.x}, Y: ${targetPoint.y}, Z: ${targetPoint.z}m`);
+                                    break; 
+                                }
+                            }
+                        }
+                    }
+                }
+            }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+            btnAddPoint.addEventListener('click', () => {
+                if (currentX === null || currentY === null) {
+                    showToast('請先使用按鈕1選取平面座標！');
+                    return;
+                }
+
+                const zValue = parseFloat(zSlider.value);
+                const xValue = parseFloat(currentX);
+                const yValue = parseFloat(currentY);
+                const pointId = 'point_' + Date.now();
+
+                // 在 Cesium 產生實體 (直徑 1.5 公尺的球體 -> 半徑 0.75m)
+                viewer.entities.add({
+                    id: pointId,
+                    position: Cesium.Cartesian3.fromDegrees(xValue, yValue, zValue),
+                    ellipsoid: {
+                        radii: new Cesium.Cartesian3(0.75, 0.75, 0.75), // 直徑 1.5 公尺
+                        material: Cesium.Color.fromCssColorString('#facc15'), // 黃色比較顯眼
+                        outline: true,
+                        outlineColor: Cesium.Color.BLACK
+                    }
+                });
+
+                // 將資料加入陣列並重繪表單
+                pointsArray.push({ id: pointId, x: currentX, y: currentY, z: zValue });
+                renderPointsTable();
+                
+                showToast('點位建置成功！');
+            });
+
+            // 繪製/重繪點位表單
+            function renderPointsTable() {
+                pointsTableBody.innerHTML = '';
+                if(pointsArray.length === 0) {
+                    pointsTableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748b; padding:15px;">尚無點位資料</td></tr>';
+                    return;
+                }
+
+                pointsArray.forEach(pt => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td title="${pt.x}">${pt.x.substring(0,6)}...</td>
+                        <td title="${pt.y}">${pt.y.substring(0,6)}...</td>
+                        <td>${pt.z}</td>
+                        <td><button class="btn-del" onclick="deletePoint('${pt.id}')">刪除</button></td>
+                    `;
+                    pointsTableBody.appendChild(tr);
+                });
+            }
+
+            // 全域刪除函數 (給 HTML onClick 呼叫)
+            window.deletePoint = function(id) {
+                // 從圖台移除
+                viewer.entities.removeById(id);
+                // 從陣列移除
+                pointsArray = pointsArray.filter(p => p.id !== id);
+                // 更新 UI
+                renderPointsTable();
+            };
+
+            // 初始空表單畫面
+            renderPointsTable();
+
+            // 移除 Loading 畫面
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 500);
+        }
     </script>
 </body>
 </html>
