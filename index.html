@@ -306,7 +306,7 @@
             });
             viewer.imageryLayers.addImageryProvider(imageryProvider);
 
-            Cesium.Cesium3DTileset.fromUrl('https://3dtiles.nlsc.gov.tw/building/tiles3d/0/tileset.json')
+            Cesium.Cesium3DTileset.fromUrl('https://3d-assets.omniguider.com/TP_3DTiles_115_TP/tileset.json')
                 .then(function(tileset) {
                     viewer.scene.primitives.add(tileset);
                     
